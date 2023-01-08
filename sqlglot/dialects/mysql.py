@@ -348,10 +348,14 @@ class MySQL(Dialect):
             )
 
         def _parse_var_from_options(self, options):
-            for option in options:
-                if self._match_text_seq(*option.split(" ")):
-                    return exp.Var(this=option)
-            return None
+            return next(
+                (
+                    exp.Var(this=option)
+                    for option in options
+                    if self._match_text_seq(*option.split(" "))
+                ),
+                None,
+            )
 
         def _parse_oldstyle_limit(self):
             limit = None
@@ -498,9 +502,7 @@ class MySQL(Dialect):
 
         def _prefixed_sql(self, prefix, expression, arg):
             sql = self.sql(expression, arg)
-            if not sql:
-                return ""
-            return f" {prefix} {sql}"
+            return f" {prefix} {sql}" if sql else ""
 
         def _oldstyle_limit_sql(self, expression):
             limit = self.sql(expression, "limit")

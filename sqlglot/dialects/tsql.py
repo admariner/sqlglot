@@ -107,8 +107,7 @@ def _string_agg_sql(self, e):
     e = e.copy()
 
     this = e.this
-    distinct = e.find(exp.Distinct)
-    if distinct:
+    if distinct := e.find(exp.Distinct):
         # exp.Distinct can appear below an exp.Order or an exp.GroupConcat expression
         self.unsupported("T-SQL STRING_AGG doesn't support DISTINCT.")
         this = distinct.expressions[0]

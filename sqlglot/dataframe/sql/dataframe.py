@@ -86,12 +86,12 @@ class DataFrame:
             from_exp = self.expression.args["from"]
             if from_exp.alias_or_name:
                 return from_exp.alias_or_name
-            table_alias = from_exp.find(exp.TableAlias)
-            if not table_alias:
+            if table_alias := from_exp.find(exp.TableAlias):
+                return table_alias.alias_or_name
+            else:
                 raise RuntimeError(
                     f"Could not find an alias name for this expression: {self.expression}"
                 )
-            return table_alias.alias_or_name
         return self.expression.ctes[-1].alias
 
     @property
@@ -186,11 +186,10 @@ class DataFrame:
             hint_expression.args.get("expressions").append(hint)
             df.pending_hints.remove(hint)
 
-        join_aliases = {
+        if join_aliases := {
             join_table.alias_or_name
             for join_table in get_tables_from_expression_with_join(expression)
-        }
-        if join_aliases:
+        }:
             for hint in df.pending_join_hints:
                 for sequence_id_expression in hint.expressions:
                     sequence_id_or_name = sequence_id_expression.alias_or_name
@@ -249,8 +248,7 @@ class DataFrame:
     @classmethod
     def _add_ctes_to_expression(cls, expression: exp.Select, ctes: t.List[exp.CTE]) -> exp.Select:
         expression = expression.copy()
-        with_expression = expression.args.get("with")
-        if with_expression:
+        if with_expression := expression.args.get("with"):
             existing_ctes = with_expression.expressions
             existsing_cte_names = {x.alias_or_name for x in existing_ctes}
             for cte in ctes:
@@ -279,8 +277,7 @@ class DataFrame:
         ] = []
         main_select_ctes: t.List[exp.CTE] = []
         for cte in self.expression.ctes:
-            cache_storage_level = cte.args.get("cache_storage_level")
-            if cache_storage_level:
+            if cache_storage_level := cte.args.get("cache_storage_level"):
                 select_expression = cte.this.copy()
                 select_expression.set("with", exp.With(expressions=copy(main_select_ctes)))
                 select_expression.set("cte_alias_name", cte.alias_or_name)
@@ -359,8 +356,9 @@ class DataFrame:
         cols = self._ensure_and_normalize_cols(cols)
         kwargs["append"] = kwargs.get("append", False)
         if self.expression.args.get("joins"):
-            ambiguous_cols = [col for col in cols if not col.column_expression.table]
-            if ambiguous_cols:
+            if ambiguous_cols := [
+                col for col in cols if not col.column_expression.table
+            ]:
                 join_table_identifiers = [
                     x.this for x in get_tables_from_expression_with_join(self.expression)
                 ]
@@ -454,9 +452,9 @@ class DataFrame:
             for column in self._get_outer_select_columns(other_df)
         ]
         column_value_mapping = {
-            column.alias_or_name
-            if not isinstance(column.expression.this, exp.Star)
-            else column.sql(): column
+            column.sql()
+            if isinstance(column.expression.this, exp.Star)
+            else column.alias_or_name: column
             for column in other_columns + self_columns + join_columns
         }
         all_columns = [
@@ -499,7 +497,7 @@ class DataFrame:
             ascending = [True] * len(columns)
         elif not isinstance(ascending, list):
             ascending = [ascending] * len(columns)
-        ascending = [bool(x) for i, x in enumerate(ascending)]
+        ascending = [bool(x) for x in ascending]
         assert len(columns) == len(
             ascending
         ), "The length of items in ascending must equal the number of columns provided"
@@ -608,8 +606,7 @@ class DataFrame:
         num_nulls = nulls_added_together.alias("num_nulls")
         new_df = new_df.select(num_nulls, append=True)
         filtered_df = new_df.where(F.col("num_nulls") < F.lit(minimum_num_nulls))
-        final_df = filtered_df.select(*all_columns)
-        return final_df
+        return filtered_df.select(*all_columns)
 
     @operation(Operation.FROM)
     def fillna(
@@ -648,7 +645,7 @@ class DataFrame:
             )
             for column, value in zip(columns, value_columns)
         }
-        null_replacement_mapping = {**all_column_mapping, **null_replacement_mapping}
+        null_replacement_mapping = all_column_mapping | null_replacement_mapping
         null_replacement_columns = [
             null_replacement_mapping[column.alias_or_name] for column in all_columns
         ]
@@ -698,7 +695,7 @@ class DataFrame:
                 column.expression.alias_or_name
             )
 
-        replacement_mapping = {**all_column_mapping, **replacement_mapping}
+        replacement_mapping = all_column_mapping | replacement_mapping
         replacement_columns = [replacement_mapping[column.alias_or_name] for column in all_columns]
         new_df = new_df.select(*replacement_columns)
         return new_df

@@ -793,9 +793,7 @@ class Tokenizer(metaclass=_Tokenizer):
             return self._char  # type: ignore
         start = self._current - 1
         end = start + size
-        if end <= self.size:
-            return self.sql[start:end]
-        return ""
+        return self.sql[start:end] if end <= self.size else ""
 
     def _advance(self, i: int = 1) -> None:
         self._col += i
@@ -892,9 +890,7 @@ class Tokenizer(metaclass=_Tokenizer):
 
         comment_start_line = self._line
         comment_start_size = len(comment_start)
-        comment_end = self._COMMENTS[comment_start]  # type: ignore
-
-        if comment_end:
+        if comment_end := self._COMMENTS[comment_start]:
             comment_end_size = len(comment_end)
 
             while not self._end and self._chars(comment_end_size) != comment_end:
@@ -945,8 +941,9 @@ class Tokenizer(metaclass=_Tokenizer):
                     literal.append(self._peek.upper())  # type: ignore
                     self._advance()
                 literal = "".join(literal)  # type: ignore
-                token_type = self.KEYWORDS.get(self.NUMERIC_LITERALS.get(literal))  # type: ignore
-                if token_type:
+                if token_type := self.KEYWORDS.get(
+                    self.NUMERIC_LITERALS.get(literal)
+                ):
                     self._add(TokenType.DCOLON, "::")
                     return self._add(token_type, literal)  # type: ignore
                 return self._advance(-len(literal))

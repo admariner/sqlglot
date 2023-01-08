@@ -64,6 +64,4 @@ def in_trie(trie: t.Dict, key: key) -> t.Tuple[int, t.Dict]:
             return (0, current)
         current = current[char]
 
-    if 0 in current:
-        return (2, current)
-    return (1, current)
+    return (2, current) if 0 in current else (1, current)

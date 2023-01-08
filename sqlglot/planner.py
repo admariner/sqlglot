@@ -240,9 +240,9 @@ class Step:
             f"{nested}Projections:",
         ]
 
-        for expression in self.projections:
-            lines.append(f"{nested}  - {expression.sql()}")
-
+        lines.extend(
+            f"{nested}  - {expression.sql()}" for expression in self.projections
+        )
         if self.condition:
             lines.append(f"{nested}Condition: {self.condition.sql()}")
 
@@ -251,9 +251,10 @@ class Step:
 
         if self.dependencies:
             lines.append(f"{nested}Dependencies:")
-            for dependency in self.dependencies:
-                lines.append("  " + dependency.to_s(level + 1))
-
+            lines.extend(
+                f"  {dependency.to_s(level + 1)}"
+                for dependency in self.dependencies
+            )
         return "\n".join(lines)
 
     @property
@@ -344,21 +345,20 @@ class Aggregate(Step):
     def _to_s(self, indent: str) -> t.List[str]:
         lines = [f"{indent}Aggregations:"]
 
-        for expression in self.aggregations:
-            lines.append(f"{indent}  - {expression.sql()}")
-
+        lines.extend(
+            f"{indent}  - {expression.sql()}" for expression in self.aggregations
+        )
         if self.group:
             lines.append(f"{indent}Group:")
-            for expression in self.group.values():
-                lines.append(f"{indent}  - {expression.sql()}")
+            lines.extend(
+                f"{indent}  - {expression.sql()}"
+                for expression in self.group.values()
+            )
         if self.condition:
-            lines.append(f"{indent}Having:")
-            lines.append(f"{indent}  - {self.condition.sql()}")
+            lines.extend((f"{indent}Having:", f"{indent}  - {self.condition.sql()}"))
         if self.operands:
             lines.append(f"{indent}Operands:")
-            for expression in self.operands:
-                lines.append(f"{indent}  - {expression.sql()}")
-
+            lines.extend(f"{indent}  - {expression.sql()}" for expression in self.operands)
         return lines
 
 
@@ -370,9 +370,7 @@ class Sort(Step):
     def _to_s(self, indent: str) -> t.List[str]:
         lines = [f"{indent}Key:"]
 
-        for expression in self.key:  # type: ignore
-            lines.append(f"{indent}  - {expression.sql()}")
-
+        lines.extend(f"{indent}  - {expression.sql()}" for expression in self.key)
         return lines
 
 

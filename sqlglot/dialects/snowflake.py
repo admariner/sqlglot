@@ -16,9 +16,7 @@ from sqlglot.tokens import TokenType
 
 
 def _check_int(s):
-    if s[0] in ("-", "+"):
-        return s[1:].isdigit()
-    return s.isdigit()
+    return s[1:].isdigit() if s[0] in ("-", "+") else s.isdigit()
 
 
 # from https://docs.snowflake.com/en/sql-reference/functions/to_timestamp.html
@@ -280,13 +278,12 @@ class Snowflake(Dialect):
             properly quote but should be true in most cases.
             """
             values_expressions = expression.find_all(exp.Values)
-            values_identifiers = set(
+            if values_identifiers := set(
                 flatten(
                     v.args.get("alias", exp.Alias()).args.get("columns", [])
                     for v in values_expressions
                 )
-            )
-            if values_identifiers:
+            ):
                 expression = expression.transform(
                     lambda node: exp.Identifier(**{**node.args, "quoted": False})
                     if isinstance(node, exp.Identifier) and node in values_identifiers

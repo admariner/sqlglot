@@ -80,9 +80,11 @@ def distributive_law(expression, dnf, max_distance):
     x OR (y AND z) -> (x OR y) AND (x OR z)
     (x AND y) OR (y AND z) -> (x OR y) AND (x OR z) AND (y OR y) AND (y OR z)
     """
-    if isinstance(expression.unnest(), exp.Connector):
-        if normalization_distance(expression, dnf) > max_distance:
-            return expression
+    if (
+        isinstance(expression.unnest(), exp.Connector)
+        and normalization_distance(expression, dnf) > max_distance
+    ):
+        return expression
 
     to_exp, from_exp = (exp.Or, exp.And) if dnf else (exp.And, exp.Or)
 

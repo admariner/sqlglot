@@ -895,12 +895,12 @@ def translate(srcCol: ColumnOrName, matching: str, replace: str) -> Column:
 
 
 def array(*cols: t.Union[ColumnOrName, t.Iterable[ColumnOrName]]) -> Column:
-    columns = _flatten(cols) if not isinstance(cols[0], (str, Column)) else cols
+    columns = cols if isinstance(cols[0], (str, Column)) else _flatten(cols)
     return Column.invoke_expression_over_column(None, glotexp.Array, expressions=columns)
 
 
 def create_map(*cols: t.Union[ColumnOrName, t.Iterable[ColumnOrName]]) -> Column:
-    cols = list(_flatten(cols)) if not isinstance(cols[0], (str, Column)) else cols  # type: ignore
+    cols = cols if isinstance(cols[0], (str, Column)) else list(_flatten(cols))
     return Column.invoke_expression_over_column(
         None,
         glotexp.VarMap,
@@ -1109,7 +1109,7 @@ def array_zip(*cols: ColumnOrName) -> Column:
 
 
 def map_concat(*cols: t.Union[ColumnOrName, t.Iterable[ColumnOrName]]) -> Column:
-    columns = list(flatten(cols)) if not isinstance(cols[0], (str, Column)) else cols  # type: ignore
+    columns = cols if isinstance(cols[0], (str, Column)) else list(flatten(cols))
     if len(columns) == 1:
         return Column.invoke_anonymous_function(columns[0], "MAP_CONCAT")
     return Column.invoke_anonymous_function(columns[0], "MAP_CONCAT", *columns[1:])

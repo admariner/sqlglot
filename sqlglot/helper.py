@@ -25,8 +25,8 @@ logger = logging.getLogger("sqlglot")
 class AutoName(Enum):
     """This is used for creating enum classes where `auto()` is the string form of the corresponding value's name."""
 
-    def _generate_next_value_(name, _start, _count, _last_values):  # type: ignore
-        return name
+    def _generate_next_value_(self, _start, _count, _last_values):  # type: ignore
+        return self
 
 
 def seq_get(seq: t.Sequence[T], index: int) -> t.Optional[T]:
@@ -402,4 +402,4 @@ def first(it: t.Iterable[T]) -> T:
 
     Useful for sets.
     """
-    return next(i for i in it)
+    return next(iter(it))

@@ -118,9 +118,10 @@ class ChangeDistiller:
         return self._generate_edit_script(matching_set)
 
     def _generate_edit_script(self, matching_set: t.Set[t.Tuple[int, int]]) -> t.List[Edit]:
-        edit_script: t.List[Edit] = []
-        for removed_node_id in self._unmatched_source_nodes:
-            edit_script.append(Remove(self._source_index[removed_node_id]))
+        edit_script: t.List[Edit] = [
+            Remove(self._source_index[removed_node_id])
+            for removed_node_id in self._unmatched_source_nodes
+        ]
         for inserted_node_id in self._unmatched_target_nodes:
             edit_script.append(Insert(self._target_index[inserted_node_id]))
         for kept_source_node_id, kept_target_node_id in matching_set:
@@ -144,12 +145,11 @@ class ChangeDistiller:
 
         args_lcs = set(_lcs(source_args, target_args, lambda l, r: (l, r) in matching_set))
 
-        move_edits = []
-        for a in source_args:
-            if a not in args_lcs and a not in self._unmatched_source_nodes:
-                move_edits.append(Move(self._source_index[a]))
-
-        return move_edits
+        return [
+            Move(self._source_index[a])
+            for a in source_args
+            if a not in args_lcs and a not in self._unmatched_source_nodes
+        ]
 
     def _compute_matching_set(self) -> t.Set[t.Tuple[int, int]]:
         leaves_matching_set = self._compute_leaf_matching_set()
@@ -170,8 +170,9 @@ class ChangeDistiller:
                     source_leaf_ids = {id(l) for l in _get_leaves(source_node)}
                     target_leaf_ids = {id(l) for l in _get_leaves(target_node)}
 
-                    max_leaves_num = max(len(source_leaf_ids), len(target_leaf_ids))
-                    if max_leaves_num:
+                    if max_leaves_num := max(
+                        len(source_leaf_ids), len(target_leaf_ids)
+                    ):
                         common_leaves_num = sum(
                             1 if s in source_leaf_ids and t in target_leaf_ids else 0
                             for s, t in leaves_matching_set
@@ -237,11 +238,10 @@ class ChangeDistiller:
         if not total_grams:
             return 1.0 if source == target else 0.0
 
-        overlap_len = 0
         overlapping_grams = set(source_histo) & set(target_histo)
-        for g in overlapping_grams:
-            overlap_len += min(source_histo[g], target_histo[g])
-
+        overlap_len = sum(
+            min(source_histo[g], target_histo[g]) for g in overlapping_grams
+        )
         return 2 * overlap_len / total_grams
 
     def _bigram_histo(self, expression: exp.Expression) -> t.DefaultDict[str, int]:
@@ -299,7 +299,7 @@ def _lcs(
 
     len_a = len(seq_a)
     len_b = len(seq_b)
-    lcs_result = [[None] * (len_b + 1) for i in range(len_a + 1)]
+    lcs_result = [[None] * (len_b + 1) for _ in range(len_a + 1)]
 
     for i in range(len_a + 1):
         for j in range(len_b + 1):

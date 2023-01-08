@@ -3,7 +3,7 @@ import typing as t
 
 class DataType:
     def __repr__(self) -> str:
-        return self.__class__.__name__ + "()"
+        return f"{self.__class__.__name__}()"
 
     def __hash__(self) -> int:
         return hash(str(self))

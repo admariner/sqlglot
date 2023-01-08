@@ -56,11 +56,9 @@ def load(obj: JSON) -> Node:
         klass = getattr(module, class_name)
 
         expression = klass(**{k: load(v) for k, v in obj["args"].items()})
-        type_ = obj.get("type")
-        if type_:
+        if type_ := obj.get("type"):
             expression.type = exp.DataType.build(type_)
-        comments = obj.get("comments")
-        if comments:
+        if comments := obj.get("comments"):
             expression.comments = load(comments)
         return expression
     return obj

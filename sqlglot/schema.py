@@ -105,7 +105,7 @@ class AbstractMappingSchema(t.Generic[T]):
     def find(
         self, table: exp.Table, trie: t.Optional[t.Dict] = None, raise_on_missing: bool = True
     ) -> t.Optional[T]:
-        parts = self.table_parts(table)[0 : len(self.supported_table_args)]
+        parts = self.table_parts(table)[:len(self.supported_table_args)]
         value, trie = in_trie(self.mapping_trie if trie is None else trie, parts)
 
         if value == 0:
@@ -247,12 +247,10 @@ class MappingSchema(AbstractMappingSchema[t.Dict[str, str]], Schema):
         return super()._depth() - 1
 
     def _ensure_table(self, table: exp.Table | str) -> exp.Table:
-        table_ = exp.to_table(table)
-
-        if not table_:
+        if table_ := exp.to_table(table):
+            return table_
+        else:
             raise SchemaError(f"Not a valid table '{table}'")
-
-        return table_
 
     def column_names(self, table: exp.Table | str, only_visible: bool = False) -> t.List[str]:
         table_ = self._ensure_table(table)
@@ -269,10 +267,8 @@ class MappingSchema(AbstractMappingSchema[t.Dict[str, str]], Schema):
 
     def get_column_type(self, table: exp.Table | str, column: exp.Column | str) -> exp.DataType:
         column_name = column if isinstance(column, str) else column.name
-        table_ = exp.to_table(table)
-        if table_:
-            table_schema = self.find(table_, raise_on_missing=False)
-            if table_schema:
+        if table_ := exp.to_table(table):
+            if table_schema := self.find(table_, raise_on_missing=False):
                 column_type = table_schema.get(column_name)
 
                 if isinstance(column_type, exp.DataType):
@@ -306,10 +302,7 @@ class MappingSchema(AbstractMappingSchema[t.Dict[str, str]], Schema):
 
 
 def ensure_schema(schema: t.Any) -> Schema:
-    if isinstance(schema, Schema):
-        return schema
-
-    return MappingSchema(schema)
+    return schema if isinstance(schema, Schema) else MappingSchema(schema)
 
 
 def ensure_column_mapping(mapping: t.Optional[ColumnMapping]):
@@ -398,10 +391,6 @@ def _nested_set(d: t.Dict, keys: t.List[str], value: t.Any) -> t.Dict:
 
     subd = d
     for key in keys[:-1]:
-        if key not in subd:
-            subd = subd.setdefault(key, {})
-        else:
-            subd = subd[key]
-
+        subd = subd.setdefault(key, {}) if key not in subd else subd[key]
     subd[keys[-1]] = value
     return d

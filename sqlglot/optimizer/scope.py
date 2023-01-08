@@ -256,19 +256,16 @@ class Scope:
             dict[str, (exp.Table|exp.Select, exp.Table|Scope)]: selected sources and nodes
         """
         if self._selected_sources is None:
-            referenced_names = []
-
-            for table in self.tables:
-                referenced_names.append((table.alias_or_name, table))
-            for derived_table in self.derived_tables:
-                referenced_names.append((derived_table.alias, derived_table.unnest()))
-
-            result = {}
-
-            for name, node in referenced_names:
-                if name in self.sources:
-                    result[name] = (node, self.sources[name])
-
+            referenced_names = [(table.alias_or_name, table) for table in self.tables]
+            referenced_names.extend(
+                (derived_table.alias, derived_table.unnest())
+                for derived_table in self.derived_tables
+            )
+            result = {
+                name: (node, self.sources[name])
+                for name, node in referenced_names
+                if name in self.sources
+            }
             self._selected_sources = result
         return self._selected_sources
 
@@ -336,9 +333,7 @@ class Scope:
         Returns:
             list[exp.JoinHint]: Join hints that are referenced within the scope
         """
-        if self._join_hints is None:
-            return []
-        return self._join_hints
+        return [] if self._join_hints is None else self._join_hints
 
     def source_columns(self, source_name):
         """
@@ -499,13 +494,13 @@ def _traverse_union(scope):
 
     # The last scope to be yield should be the top most scope
     left = None
-    for left in _traverse_scope(scope.branch(scope.expression.left, scope_type=ScopeType.UNION)):
-        yield left
-
+    yield from _traverse_scope(
+        scope.branch(scope.expression.left, scope_type=ScopeType.UNION)
+    )
     right = None
-    for right in _traverse_scope(scope.branch(scope.expression.right, scope_type=ScopeType.UNION)):
-        yield right
-
+    yield from _traverse_scope(
+        scope.branch(scope.expression.right, scope_type=ScopeType.UNION)
+    )
     scope.union_scopes = [left, right]
 
 
@@ -559,11 +554,7 @@ def _add_table_sources(scope):
     for table in scope.tables:
         table_name = table.name
 
-        if table.alias:
-            source_name = table.alias
-        else:
-            source_name = table_name
-
+        source_name = table.alias or table_name
         if table_name in scope.sources:
             # This is a reference to a parent source (e.g. a CTE), not an actual table.
             scope.sources[source_name] = scope.sources[table_name]

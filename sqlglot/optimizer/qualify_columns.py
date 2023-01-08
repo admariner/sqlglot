@@ -50,8 +50,7 @@ def _pop_table_column_aliases(derived_tables):
     for derived_table in derived_tables:
         if isinstance(derived_table.unnest(), exp.UDTF):
             continue
-        table_alias = derived_table.args.get("alias")
-        if table_alias:
+        if table_alias := derived_table.args.get("alias"):
             table_alias.args.pop("columns", None)
 
 
@@ -214,24 +213,26 @@ def _qualify_columns(scope, resolver):
     columns_missing_from_scope = []
     # Determine whether each reference in the order by clause is to a column or an alias.
     for ordered in scope.find_all(exp.Ordered):
-        for column in ordered.find_all(exp.Column):
+        columns_missing_from_scope.extend(
+            column
+            for column in ordered.find_all(exp.Column)
             if (
                 not column.table
                 and column.parent is not ordered
                 and column.name in resolver.all_columns
-            ):
-                columns_missing_from_scope.append(column)
-
+            )
+        )
     # Determine whether each reference in the having clause is to a column or an alias.
     for having in scope.find_all(exp.Having):
-        for column in having.find_all(exp.Column):
+        columns_missing_from_scope.extend(
+            column
+            for column in having.find_all(exp.Column)
             if (
                 not column.table
                 and column.find_ancestor(exp.AggFunc)
                 and column.name in resolver.all_columns
-            ):
-                columns_missing_from_scope.append(column)
-
+            )
+        )
     for column in columns_missing_from_scope:
         column_table = resolver.get_table(column.name)
 

@@ -25,8 +25,7 @@ def pushdown_predicates(expression):
 
     for scope in reversed(list(root.traverse())):
         select = scope.expression
-        where = select.args.get("where")
-        if where:
+        if where := select.args.get("where"):
             selected_sources = scope.selected_sources
             # a right join can only push down to itself and not the source FROM table
             for k, (node, source) in selected_sources.items():

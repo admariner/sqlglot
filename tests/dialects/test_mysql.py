@@ -339,7 +339,7 @@ COMMENT='客户账户表'"""
             self.assertEqual(show.text("target"), "foo")
 
     def test_show_grants(self):
-        show = self.validate_identity(f"SHOW GRANTS FOR foo")
+        show = self.validate_identity("SHOW GRANTS FOR foo")
         self.assertIsInstance(show, exp.Show)
         self.assertEqual(show.name, "GRANTS")
         self.assertEqual(show.text("target"), "foo")

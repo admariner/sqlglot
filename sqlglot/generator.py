@@ -225,8 +225,8 @@ class Generator:
         return f"{self.sep(sep)}{sql}"
 
     def pad_comment(self, comment: str) -> str:
-        comment = " " + comment if comment[0].strip() else comment
-        comment = comment + " " if comment[-1].strip() else comment
+        comment = f" {comment}" if comment[0].strip() else comment
+        comment = f"{comment} " if comment[-1].strip() else comment
         return comment
 
     def maybe_comment(self, sql: str, expression: exp.Expression) -> str:
@@ -263,9 +263,7 @@ class Generator:
     def normalize_func(self, name: str) -> str:
         if self.normalize_functions == "upper":
             return name.upper()
-        if self.normalize_functions == "lower":
-            return name.lower()
-        return name
+        return name.lower() if self.normalize_functions == "lower" else name
 
     def indent(
         self,
@@ -363,9 +361,11 @@ class Generator:
         constraints = self.expressions(expression, key="constraints", sep=" ", flat=True)
         exists = "IF NOT EXISTS " if expression.args.get("exists") else ""
 
-        if not constraints:
-            return f"{exists}{column} {kind}"
-        return f"{exists}{column} {kind} {constraints}"
+        return (
+            f"{exists}{column} {kind} {constraints}"
+            if constraints
+            else f"{exists}{column} {kind}"
+        )
 
     def columnconstraint_sql(self, expression: exp.ColumnConstraint) -> str:
         this = self.sql(expression, "this")
@@ -407,7 +407,7 @@ class Generator:
         desc = expression.args.get("desc")
         if desc is not None:
             return f"PRIMARY KEY{' DESC' if desc else ' ASC'}"
-        return f"PRIMARY KEY"
+        return "PRIMARY KEY"
 
     def uniquecolumnconstraint_sql(self, _) -> str:
         return "UNIQUE"
@@ -454,8 +454,7 @@ class Generator:
         return f"DESCRIBE {self.sql(expression, 'this')}"
 
     def prepend_ctes(self, expression: exp.Expression, sql: str) -> str:
-        with_ = self.sql(expression, "with")
-        if with_:
+        if with_ := self.sql(expression, "with"):
             sql = f"{with_}{self.sep()}{sql}"
         return sql
 
@@ -485,8 +484,7 @@ class Generator:
         type_value = expression.this
         type_sql = self.TYPE_MAPPING.get(type_value, type_value.value)
         nested = ""
-        interior = self.expressions(expression, flat=True)
-        if interior:
+        if interior := self.expressions(expression, flat=True):
             nested = (
                 f"{self.STRUCT_DELIMITER[0]}{interior}{self.STRUCT_DELIMITER[1]}"
                 if expression.args.get("nested")
@@ -791,11 +789,7 @@ class Generator:
         if on_sql:
             on_sql = self.indent(on_sql, skip_first=True)
             space = self.seg(" " * self.pad) if self.pretty else " "
-            if using:
-                on_sql = f"{space}USING ({on_sql})"
-            else:
-                on_sql = f"{space}ON {on_sql}"
-
+            on_sql = f"{space}USING ({on_sql})" if using else f"{space}ON {on_sql}"
         expression_sql = self.sql(expression, "expression")
         this_sql = self.sql(expression, "this")
         return f"{expression_sql}{op_sql} {this_sql}{on_sql}"
@@ -1020,10 +1014,10 @@ class Generator:
         order = expression.args.get("order")
         order_sql = self.order_sql(order, flat=True) if order else ""
 
-        partition_sql = partition + " " if partition and order else partition
+        partition_sql = f"{partition} " if partition and order else partition
 
         spec = expression.args.get("spec")
-        spec_sql = " " + self.window_spec_sql(spec) if spec else ""
+        spec_sql = f" {self.window_spec_sql(spec)}" if spec else ""
 
         alias = self.sql(expression, "alias")
         this = f"{this} {'AS' if expression.arg_key == 'windows' else 'OVER'}"
@@ -1076,9 +1070,7 @@ class Generator:
             statements.append(f"WHEN {self.sql(e, 'this')}")
             statements.append(f"THEN {self.sql(e, 'true')}")
 
-        default = self.sql(expression, "default")
-
-        if default:
+        if default := self.sql(expression, "default"):
             statements.append(f"ELSE {default}")
 
         statements.append("END")
@@ -1264,16 +1256,14 @@ class Generator:
     def altercolumn_sql(self, expression: exp.AlterColumn) -> str:
         this = self.sql(expression, "this")
 
-        dtype = self.sql(expression, "dtype")
-        if dtype:
+        if dtype := self.sql(expression, "dtype"):
             collate = self.sql(expression, "collate")
             collate = f" COLLATE {collate}" if collate else ""
             using = self.sql(expression, "using")
             using = f" USING {using}" if using else ""
             return f"ALTER COLUMN {this} TYPE {dtype}{collate}{using}"
 
-        default = self.sql(expression, "default")
-        if default:
+        if default := self.sql(expression, "default"):
             return f"ALTER COLUMN {this} SET DEFAULT {default}"
 
         if not expression.args.get("drop"):
@@ -1399,8 +1389,7 @@ class Generator:
         args = []
         for arg_value in expression.args.values():
             if isinstance(arg_value, list):
-                for value in arg_value:
-                    args.append(value)
+                args.extend(iter(arg_value))
             else:
                 args.append(arg_value)
 

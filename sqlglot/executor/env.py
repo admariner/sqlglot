@@ -23,9 +23,7 @@ def filter_nulls(func, empty_null=True):
     @wraps(func)
     def _func(values):
         filtered = tuple(v for v in values if v is not None)
-        if not filtered and empty_null:
-            return None
-        return func(filtered)
+        return None if not filtered and empty_null else func(filtered)
 
     return _func
 
@@ -62,16 +60,11 @@ def null_if_any(*required):
 
         @wraps(func)
         def _func(*args):
-            if predicate(*args):
-                return None
-            return func(*args)
+            return None if predicate(*args) else func(*args)
 
         return _func
 
-    if f:
-        return decorator(f)
-
-    return decorator
+    return decorator(f) if f else decorator
 
 
 @null_if_any("substr", "this")
@@ -112,9 +105,7 @@ def cast(this, to):
 
 
 def ordered(this, desc, nulls_first):
-    if desc:
-        return reverse_key(this)
-    return this
+    return reverse_key(this) if desc else this
 
 
 @null_if_any

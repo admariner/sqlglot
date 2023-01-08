@@ -121,10 +121,10 @@ class Dialect(metaclass=_Dialect):
     def get_or_raise(cls, dialect):
         if not dialect:
             return cls
-        result = cls.get(dialect)
-        if not result:
+        if result := cls.get(dialect):
+            return result
+        else:
             raise ValueError(f"Unknown dialect '{dialect}'")
-        return result
 
     @classmethod
     def format_time(cls, expression):
@@ -277,8 +277,7 @@ def no_properties_sql(self, expression):
 def str_position_sql(self, expression):
     this = self.sql(expression, "this")
     substr = self.sql(expression, "substr")
-    position = self.sql(expression, "position")
-    if position:
+    if position := self.sql(expression, "position"):
         return f"STRPOS(SUBSTR({this}, {position}), {substr}) + {position} - 1"
     return f"STRPOS({this}, {substr})"
 
@@ -299,8 +298,7 @@ def var_map_sql(self, expression, map_func_name="MAP"):
 
     args = []
     for key, value in zip(keys.expressions, values.expressions):
-        args.append(self.sql(key))
-        args.append(self.sql(value))
+        args.extend((self.sql(key), self.sql(value)))
     return f"{map_func_name}({self.format_args(*args)})"
 
 

@@ -70,9 +70,7 @@ def pushdown_projections(expression):
 
 def _remove_unused_selections(scope, parent_selections):
     removed_indexes = []
-    order = scope.expression.args.get("order")
-
-    if order:
+    if order := scope.expression.args.get("order"):
         # Assume columns without a qualified table are references to output columns
         order_refs = {c.name for c in order.find_all(exp.Column) if not c.table}
     else:

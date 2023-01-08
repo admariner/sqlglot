@@ -114,7 +114,7 @@ class Column:
 
     @classmethod
     def ensure_cols(cls, args: t.List[t.Union[ColumnOrLiteral, exp.Expression]]) -> t.List[Column]:
-        return [cls.ensure_col(x) if not isinstance(x, Column) else x for x in args]
+        return [x if isinstance(x, Column) else cls.ensure_col(x) for x in args]
 
     @classmethod
     def _lit(cls, value: ColumnOrLiteral) -> Column:
@@ -188,9 +188,7 @@ class Column:
 
         if isinstance(value, cls):
             value = value.expression
-        if not isinstance(value, exp.Literal):
-            return lit(value)
-        return Column(value)
+        return Column(value) if isinstance(value, exp.Literal) else lit(value)
 
     def copy(self) -> Column:
         return Column(self.expression.copy())
@@ -267,11 +265,11 @@ class Column:
         return Column(new_expression)
 
     def startswith(self, value: t.Union[str, Column]) -> Column:
-        value = self._lit(value) if not isinstance(value, Column) else value
+        value = value if isinstance(value, Column) else self._lit(value)
         return self.invoke_anonymous_function(self, "STARTSWITH", value)
 
     def endswith(self, value: t.Union[str, Column]) -> Column:
-        value = self._lit(value) if not isinstance(value, Column) else value
+        value = value if isinstance(value, Column) else self._lit(value)
         return self.invoke_anonymous_function(self, "ENDSWITH", value)
 
     def rlike(self, regexp: str) -> Column:
@@ -290,8 +288,8 @@ class Column:
         )
 
     def substr(self, startPos: t.Union[int, Column], length: t.Union[int, Column]) -> Column:
-        startPos = self._lit(startPos) if not isinstance(startPos, Column) else startPos
-        length = self._lit(length) if not isinstance(length, Column) else length
+        startPos = startPos if isinstance(startPos, Column) else self._lit(startPos)
+        length = length if isinstance(length, Column) else self._lit(length)
         return Column.invoke_expression_over_column(
             self, exp.Substring, start=startPos.expression, length=length.expression
         )
@@ -307,10 +305,10 @@ class Column:
         upperBound: t.Union[ColumnOrLiteral],
     ) -> Column:
         lower_bound_exp = (
-            self._lit(lowerBound) if not isinstance(lowerBound, Column) else lowerBound
+            lowerBound if isinstance(lowerBound, Column) else self._lit(lowerBound)
         )
         upper_bound_exp = (
-            self._lit(upperBound) if not isinstance(upperBound, Column) else upperBound
+            upperBound if isinstance(upperBound, Column) else self._lit(upperBound)
         )
         return Column(
             exp.Between(

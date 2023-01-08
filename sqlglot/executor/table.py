@@ -50,7 +50,7 @@ class Table:
             if not self.column_range or i in self.column_range
         )
         widths = {column: len(column) for column in columns}
-        lines = [" ".join(column for column in columns)]
+        lines = [" ".join(columns)]
 
         for i, row in enumerate(self):
             if i > 10:
@@ -58,7 +58,8 @@ class Table:
 
             lines.append(
                 " ".join(
-                    str(row[column]).rjust(widths[column])[0 : widths[column]] for column in columns
+                    str(row[column]).rjust(widths[column])[: widths[column]]
+                    for column in columns
                 )
             )
         return "\n".join(lines)

@@ -89,9 +89,7 @@ class Expression(metaclass=_Expression):
         field = self.args.get(key)
         if isinstance(field, str):
             return field
-        if isinstance(field, (Identifier, Literal, Var)):
-            return field.this
-        return ""
+        return field.this if isinstance(field, (Identifier, Literal, Var)) else ""
 
     @property
     def is_string(self):
@@ -123,9 +121,7 @@ class Expression(metaclass=_Expression):
 
     @property
     def alias_or_name(self):
-        if isinstance(self, Null):
-            return "NULL"
-        return self.alias or self.name
+        return "NULL" if isinstance(self, Null) else self.alias or self.name
 
     @property
     def type(self) -> t.Optional[DataType]:
@@ -189,9 +185,7 @@ class Expression(metaclass=_Expression):
         """
         Returns the depth of this tree.
         """
-        if self.parent:
-            return self.parent.depth + 1
-        return 0
+        return self.parent.depth + 1 if self.parent else 0
 
     def find(self, *expression_types, bfs=True):
         """
@@ -316,9 +310,7 @@ class Expression(metaclass=_Expression):
         """
         Returns the inner expression if this is an Alias.
         """
-        if isinstance(self, Alias):
-            return self.this
-        return self
+        return self.this if isinstance(self, Alias) else self
 
     def unnest_operands(self):
         """
@@ -359,8 +351,7 @@ class Expression(metaclass=_Expression):
         return Dialect.get_or_raise(dialect)().generate(self, **opts)
 
     def to_s(self, hide_missing: bool = True, level: int = 0) -> str:
-        indent = "" if not level else "\n"
-        indent += "".join(["  "] * level)
+        indent = ("\n" if level else "") + "".join(["  "] * level)
         left = f"({self.key.upper()} "
 
         args: t.Dict[str, t.Any] = {
@@ -375,9 +366,7 @@ class Expression(metaclass=_Expression):
         args["type"] = self.type
         args = {k: v for k, v in args.items() if v or not hide_missing}
 
-        right = ", ".join(f"{k}: {v}" for k, v in args.items())
-        right += ")"
-
+        right = ", ".join(f"{k}: {v}" for k, v in args.items()) + ")"
         return indent + left + right
 
     def transform(self, fun, *args, copy=True, **kwargs):
@@ -543,11 +532,7 @@ class DerivedTable(Expression):
 
     @property
     def selects(self):
-        alias = self.args.get("alias")
-
-        if alias:
-            return alias.columns
-        return []
+        return alias.columns if (alias := self.args.get("alias")) else []
 
     @property
     def named_selects(self):
@@ -1232,8 +1217,7 @@ class Properties(Expression):
     def from_dict(cls, properties_dict) -> Properties:
         expressions = []
         for key, value in properties_dict.items():
-            property_cls = cls.NAME_TO_PROPERTY.get(key.upper())
-            if property_cls:
+            if property_cls := cls.NAME_TO_PROPERTY.get(key.upper()):
                 expressions.append(property_cls(this=convert(value)))
             else:
                 expressions.append(Property(this=Literal.string(key), value=convert(value)))
@@ -1282,9 +1266,7 @@ class Subqueryable(Unionable):
     @property
     def ctes(self):
         with_ = self.args.get("with")
-        if not with_:
-            return []
-        return with_.expressions
+        return with_.expressions if with_ else []
 
     @property
     def selects(self):
@@ -1544,7 +1526,7 @@ class Select(Subqueryable):
             Select: the modified expression.
         """
         if not expressions:
-            return self if not copy else self.copy()
+            return self.copy() if copy else self
         return _apply_child_list_builder(
             *expressions,
             instance=self,
@@ -3144,9 +3126,7 @@ def _norm_args(expression):
 
     for k, arg in expression.args.items():
         if isinstance(arg, list):
-            arg = [_norm_arg(a) for a in arg]
-            if not arg:
-                arg = None
+            arg = [_norm_arg(a) for a in arg] or None
         else:
             arg = _norm_arg(arg)
 
@@ -3914,20 +3894,18 @@ def table_name(table) -> str:
         str: the table name
     """
 
-    table = maybe_parse(table, into=Table)
-
-    if not table:
-        raise ValueError(f"Cannot parse {table}")
-
-    return ".".join(
-        part
-        for part in (
-            table.text("catalog"),
-            table.text("db"),
-            table.name,
+    if table := maybe_parse(table, into=Table):
+        return ".".join(
+            part
+            for part in (
+                table.text("catalog"),
+                table.text("db"),
+                table.name,
+            )
+            if part
         )
-        if part
-    )
+    else:
+        raise ValueError(f"Cannot parse {table}")
 
 
 def replace_tables(expression, mapping):

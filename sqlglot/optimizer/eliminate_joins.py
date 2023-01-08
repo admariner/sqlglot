@@ -53,10 +53,7 @@ def _should_eliminate_join(scope, join, alias):
 
 
 def _join_is_used(scope, join, alias):
-    # We need to find all columns that reference this join.
-    # But columns in the ON clause shouldn't count.
-    on = join.args.get("on")
-    if on:
+    if on := join.args.get("on"):
         on_clause_columns = {id(column) for column in on.find_all(exp.Column)}
     else:
         on_clause_columns = set()
@@ -80,8 +77,7 @@ def _unique_outputs(scope):
     if scope.expression.args.get("distinct"):
         return set(scope.expression.named_selects)
 
-    group = scope.expression.args.get("group")
-    if group:
+    if group := scope.expression.args.get("group"):
         grouped_expressions = set(group.expressions)
         grouped_outputs = set()
 
@@ -93,11 +89,11 @@ def _unique_outputs(scope):
                 unique_outputs.add(select.alias_or_name)
 
         # All the grouped expressions must be in the output
-        if not grouped_expressions.difference(grouped_outputs):
-            return unique_outputs
-        else:
-            return set()
-
+        return (
+            set()
+            if grouped_expressions.difference(grouped_outputs)
+            else unique_outputs
+        )
     if _has_single_output_row(scope):
         return set(scope.expression.named_selects)
 

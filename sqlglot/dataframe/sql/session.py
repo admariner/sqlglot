@@ -70,7 +70,7 @@ class SparkSession:
                 expressions=list(
                     map(
                         lambda x: F.lit(x).expression,
-                        row if not isinstance(row, dict) else row.values(),
+                        row.values() if isinstance(row, dict) else row,
                     )
                 )
             )

@@ -251,22 +251,21 @@ class TypeAnnotator:
     def annotate(self, expression):
         if isinstance(expression, self.TRAVERSABLES):
             for scope in traverse_scope(expression):
-                selects = {}
-                for name, source in scope.sources.items():
-                    if not isinstance(source, Scope):
-                        continue
-                    if isinstance(source.expression, exp.Values):
-                        selects[name] = {
-                            alias: column
-                            for alias, column in zip(
-                                source.expression.alias_column_names,
-                                source.expression.expressions[0].expressions,
-                            )
-                        }
-                    else:
-                        selects[name] = {
-                            select.alias_or_name: select for select in source.expression.selects
-                        }
+                selects = {
+                    name: dict(
+                        zip(
+                            source.expression.alias_column_names,
+                            source.expression.expressions[0].expressions,
+                        )
+                    )
+                    if isinstance(source.expression, exp.Values)
+                    else {
+                        select.alias_or_name: select
+                        for select in source.expression.selects
+                    }
+                    for name, source in scope.sources.items()
+                    if isinstance(source, Scope)
+                }
                 # First annotate the current scope's column references
                 for col in scope.columns:
                     source = scope.sources.get(col.table)

@@ -20,7 +20,7 @@ from sqlglot.tokens import TokenType
 
 def _approx_distinct_sql(self, expression):
     accuracy = expression.args.get("accuracy")
-    accuracy = ", " + self.sql(accuracy) if accuracy else ""
+    accuracy = f", {self.sql(accuracy)}" if accuracy else ""
     return f"APPROX_DISTINCT({self.sql(expression, 'this')}{accuracy})"
 
 

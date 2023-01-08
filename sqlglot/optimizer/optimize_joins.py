@@ -13,9 +13,7 @@ def optimize_joins(expression):
 
         for join in select.args.get("joins", []):
             name = join.this.alias_or_name
-            tables = other_table_names(join, name)
-
-            if tables:
+            if tables := other_table_names(join, name):
                 for table in tables:
                     references[table] = references.get(table, []) + [join]
             else:

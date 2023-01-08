@@ -120,9 +120,7 @@ def _datatype_sql(self, expression):
 
 
 def _auto_increment_to_serial(expression):
-    auto = expression.find(exp.AutoIncrementColumnConstraint)
-
-    if auto:
+    if auto := expression.find(exp.AutoIncrementColumnConstraint):
         expression = expression.copy()
         expression.args["constraints"].remove(auto.parent)
         kind = expression.args["kind"]

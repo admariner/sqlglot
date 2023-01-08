@@ -75,9 +75,11 @@ class PythonExecutor:
 
     def generate_tuple(self, expressions):
         """Convert an array of SQL expressions into tuple of Python byte code."""
-        if not expressions:
-            return tuple()
-        return tuple(self.generate(expression) for expression in expressions)
+        return (
+            tuple(self.generate(expression) for expression in expressions)
+            if expressions
+            else tuple()
+        )
 
     def context(self, tables):
         return Context(tables, env=self.env)
@@ -162,7 +164,7 @@ class PythonExecutor:
 
         source_table = context.tables[source]
         source_context = self.context({source: source_table})
-        column_ranges = {source: range(0, len(source_table.columns))}
+        column_ranges = {source: range(len(source_table.columns))}
 
         for name, join in step.joins.items():
             table = context.tables[name]
@@ -316,9 +318,7 @@ class PythonExecutor:
 
         context = self.context({step.name: table, **{name: table for name in context.tables}})
 
-        if step.projections:
-            return self.scan(step, context)
-        return context
+        return self.scan(step, context) if step.projections else context
 
     def sort(self, step, context):
         projections = self.generate_tuple(step.projections)
@@ -337,7 +337,7 @@ class PythonExecutor:
         sort_ctx.sort(self.generate_tuple(step.key))
 
         if not math.isinf(step.limit):
-            sort_ctx.table.rows = sort_ctx.table.rows[0 : step.limit]
+            sort_ctx.table.rows = sort_ctx.table.rows[:step.limit]
 
         output = Table(
             projection_columns,

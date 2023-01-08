@@ -350,14 +350,10 @@ def _simplify_binary(expression, a, b):
                 return exp.Literal.number(a // b)
             return exp.Literal.number(a / b)
 
-        boolean = eval_boolean(expression, a, b)
-
-        if boolean:
+        if boolean := eval_boolean(expression, a, b):
             return boolean
     elif a.is_string and b.is_string:
-        boolean = eval_boolean(expression, a, b)
-
-        if boolean:
+        if boolean := eval_boolean(expression, a, b):
             return boolean
     elif isinstance(a, exp.Cast) and isinstance(b, exp.Interval):
         a, b = extract_date(a), extract_interval(b)
@@ -418,9 +414,7 @@ def eval_boolean(expression, a, b):
         return boolean_literal(a >= b)
     if isinstance(expression, exp.LT):
         return boolean_literal(a < b)
-    if isinstance(expression, exp.LTE):
-        return boolean_literal(a <= b)
-    return None
+    return boolean_literal(a <= b) if isinstance(expression, exp.LTE) else None
 
 
 def extract_date(cast):
@@ -444,9 +438,7 @@ def extract_interval(interval):
         return relativedelta(months=n)
     if unit == "week":
         return relativedelta(weeks=n)
-    if unit == "day":
-        return relativedelta(days=n)
-    return None
+    return relativedelta(days=n) if unit == "day" else None
 
 
 def date_literal(date):
@@ -466,9 +458,7 @@ def _flat_simplify(expression, simplifier):
         a = queue.popleft()
 
         for b in queue:
-            result = simplifier(expression, a, b)
-
-            if result:
+            if result := simplifier(expression, a, b):
                 queue.remove(b)
                 queue.append(result)
                 break

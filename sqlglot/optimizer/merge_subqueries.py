@@ -317,8 +317,7 @@ def _merge_hints(outer_scope, inner_scope):
     inner_scope_hint = inner_scope.expression.args.get("hint")
     if not inner_scope_hint:
         return
-    outer_scope_hint = outer_scope.expression.args.get("hint")
-    if outer_scope_hint:
+    if outer_scope_hint := outer_scope.expression.args.get("hint"):
         for hint_expression in inner_scope_hint.expressions:
             outer_scope_hint.append("expressions", hint_expression)
     else:

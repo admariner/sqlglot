@@ -57,8 +57,7 @@ ORDER BY
 
 short = "select 1 as a, case when 1 then 1 when 2 then 2 else 3 end as b, c from x"
 
-crazy = "SELECT 1+"
-crazy += "+".join(str(i) for i in range(500))
+crazy = "SELECT 1+" + "+".join(str(i) for i in range(500))
 crazy += " AS a, 2*"
 crazy += "*".join(str(i) for i in range(500))
 crazy += " AS b FROM x"
@@ -194,7 +193,7 @@ def diff(row, column):
     column = row[column]
     if isinstance(column, str):
         return " (N/A)"
-    return f" ({str(column / row['sqlglot'])[0:5]})"
+    return f" ({str(column / row['sqlglot'])[:5]})"
 
 
 libs = [
@@ -212,7 +211,9 @@ for name, sql in {"tpch": tpch, "short": short, "long": long, "crazy": crazy}.it
     table.append(row)
     for lib in libs:
         try:
-            row[lib] = np.mean(timeit.repeat(lambda: globals()[lib + "_parse"](sql), number=3))
+            row[lib] = np.mean(
+                timeit.repeat(lambda: globals()[f"{lib}_parse"](sql), number=3)
+            )
         except Exception as e:
             print(e)
             row[lib] = "error"
@@ -223,11 +224,12 @@ widths = {column: max(len(column), 15) for column in columns}
 lines = [border(column.rjust(width) for column, width in widths.items())]
 lines.append(border(str("-" * width) for width in widths.values()))
 
-for i, row in enumerate(table):
-    lines.append(border(
-        (str(row[column])[0:7] + diff(row, column)).rjust(width)[0 : width]
+lines.extend(
+    border(
+        (str(row[column])[:7] + diff(row, column)).rjust(width)[:width]
         for column, width in widths.items()
-    ))
-
+    )
+    for row in table
+)
 for line in lines:
     print(line)

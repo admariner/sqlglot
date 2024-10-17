@@ -3214,10 +3214,18 @@ class Table(Expression):
 
     def to_column(self, copy: bool = True) -> Alias | Column | Dot:
         parts = self.parts
-        col = column(*reversed(parts[0:4]), fields=parts[4:], copy=copy)  # type: ignore
+        last_part = parts[-1]
+
+        if isinstance(last_part, Identifier):
+            col = column(*reversed(parts[0:4]), fields=parts[4:], copy=copy)  # type: ignore
+        else:
+            # This branch will be reached if a function or array is wrapped in a `Table`
+            col = last_part
+
         alias = self.args.get("alias")
         if alias:
             col = alias_(col, alias.this, copy=copy)
+
         return col
 
 
@@ -5183,6 +5191,14 @@ class ToNumber(Func):
         "nlsparam": False,
         "precision": False,
         "scale": False,
+    }
+
+
+# https://docs.snowflake.com/en/sql-reference/functions/to_double
+class ToDouble(Func):
+    arg_types = {
+        "this": True,
+        "format": False,
     }
 
 
@@ -7422,15 +7438,9 @@ def to_interval(interval: str | Literal) -> Interval:
 
         interval = interval.this
 
-    interval_parts = INTERVAL_STRING_RE.match(interval)  # type: ignore
-
-    if not interval_parts:
-        raise ValueError("Invalid interval string.")
-
-    return Interval(
-        this=Literal.string(interval_parts.group(1)),
-        unit=Var(this=interval_parts.group(2).upper()),
-    )
+    interval = maybe_parse(f"INTERVAL {interval}")
+    assert isinstance(interval, Interval)
+    return interval
 
 
 def to_table(

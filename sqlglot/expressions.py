@@ -1557,6 +1557,7 @@ class Show(Expression):
         "log": False,
         "position": False,
         "types": False,
+        "privileges": False,
     }
 
 
@@ -1568,8 +1569,12 @@ class CharacterSet(Expression):
     arg_types = {"this": True, "default": False}
 
 
+class RecursiveWithSearch(Expression):
+    arg_types = {"kind": True, "this": True, "expression": True, "using": False}
+
+
 class With(Expression):
-    arg_types = {"expressions": True, "recursive": False}
+    arg_types = {"expressions": True, "recursive": False, "search": False}
 
     @property
     def recursive(self) -> bool:
@@ -5290,11 +5295,11 @@ class AnonymousAggFunc(AggFunc):
 
 # https://clickhouse.com/docs/en/sql-reference/aggregate-functions/combinators
 class CombinedAggFunc(AnonymousAggFunc):
-    arg_types = {"this": True, "expressions": False, "parts": True}
+    arg_types = {"this": True, "expressions": False}
 
 
 class CombinedParameterizedAgg(ParameterizedAgg):
-    arg_types = {"this": True, "expressions": True, "params": True, "parts": True}
+    arg_types = {"this": True, "expressions": True, "params": True}
 
 
 # https://docs.snowflake.com/en/sql-reference/functions/hll
@@ -5557,6 +5562,11 @@ class Cast(Func):
 
 
 class TryCast(Cast):
+    pass
+
+
+# https://clickhouse.com/docs/sql-reference/data-types/newjson#reading-json-paths-as-sub-columns
+class JSONCast(Cast):
     pass
 
 

@@ -1238,8 +1238,10 @@ class Generator(metaclass=_Generator):
             if self.CTE_RECURSIVE_KEYWORD_REQUIRED and expression.args.get("recursive")
             else ""
         )
+        search = self.sql(expression, "search")
+        search = f" {search}" if search else ""
 
-        return f"WITH {recursive}{sql}"
+        return f"WITH {recursive}{sql}{search}"
 
     def cte_sql(self, expression: exp.CTE) -> str:
         alias = expression.args.get("alias")
@@ -3516,6 +3518,9 @@ class Generator(metaclass=_Generator):
     def trycast_sql(self, expression: exp.TryCast) -> str:
         return self.cast_sql(expression, safe_prefix="TRY_")
 
+    def jsoncast_sql(self, expression: exp.JSONCast) -> str:
+        return self.cast_sql(expression)
+
     def try_sql(self, expression: exp.Try) -> str:
         if not self.TRY_SUPPORTED:
             self.unsupported("Unsupported TRY function")
@@ -4793,3 +4798,31 @@ class Generator(metaclass=_Generator):
             kind = f"TABLE {kind}"
 
         return f"{variable} AS {kind}{default}"
+
+    def recursivewithsearch_sql(self, expression: exp.RecursiveWithSearch) -> str:
+        kind = self.sql(expression, "kind")
+        this = self.sql(expression, "this")
+        set = self.sql(expression, "expression")
+        using = self.sql(expression, "using")
+        using = f" USING {using}" if using else ""
+
+        kind_sql = kind if kind == "CYCLE" else f"SEARCH {kind} FIRST BY"
+
+        return f"{kind_sql} {this} SET {set}{using}"
+
+    def parameterizedagg_sql(self, expression: exp.ParameterizedAgg) -> str:
+        params = self.expressions(expression, key="params", flat=True)
+        return self.func(expression.name, *expression.expressions) + f"({params})"
+
+    def anonymousaggfunc_sql(self, expression: exp.AnonymousAggFunc) -> str:
+        return self.func(expression.name, *expression.expressions)
+
+    def combinedaggfunc_sql(self, expression: exp.CombinedAggFunc) -> str:
+        return self.anonymousaggfunc_sql(expression)
+
+    def combinedparameterizedagg_sql(self, expression: exp.CombinedParameterizedAgg) -> str:
+        return self.parameterizedagg_sql(expression)
+
+    def show_sql(self, expression: exp.Show) -> str:
+        self.unsupported("Unsupported SHOW statement")
+        return ""

@@ -2065,6 +2065,40 @@ MATCH_RECOGNIZE (
         self.validate_identity("SHOW TERSE USERS")
         self.validate_identity("SHOW USERS LIKE '_foo%' STARTS WITH 'bar' LIMIT 5 FROM 'baz'")
 
+    def test_show_databases(self):
+        self.validate_identity("SHOW TERSE DATABASES")
+        self.validate_identity(
+            "SHOW TERSE DATABASES HISTORY LIKE 'foo' STARTS WITH 'bla' LIMIT 5 FROM 'bob' WITH PRIVILEGES USAGE, MODIFY"
+        )
+
+        ast = parse_one("SHOW DATABASES IN ACCOUNT", read="snowflake")
+        self.assertEqual(ast.this, "DATABASES")
+        self.assertEqual(ast.args.get("scope_kind"), "ACCOUNT")
+
+    def test_show_functions(self):
+        self.validate_identity("SHOW FUNCTIONS")
+        self.validate_identity("SHOW FUNCTIONS LIKE 'foo' IN CLASS bla")
+
+        ast = parse_one("SHOW FUNCTIONS IN ACCOUNT", read="snowflake")
+        self.assertEqual(ast.this, "FUNCTIONS")
+        self.assertEqual(ast.args.get("scope_kind"), "ACCOUNT")
+
+    def test_show_procedures(self):
+        self.validate_identity("SHOW PROCEDURES")
+        self.validate_identity("SHOW PROCEDURES LIKE 'foo' IN APPLICATION app")
+        self.validate_identity("SHOW PROCEDURES LIKE 'foo' IN APPLICATION PACKAGE pkg")
+
+        ast = parse_one("SHOW PROCEDURES IN ACCOUNT", read="snowflake")
+        self.assertEqual(ast.this, "PROCEDURES")
+        self.assertEqual(ast.args.get("scope_kind"), "ACCOUNT")
+
+    def test_show_warehouses(self):
+        self.validate_identity("SHOW WAREHOUSES")
+        self.validate_identity("SHOW WAREHOUSES LIKE 'foo' WITH PRIVILEGES USAGE, MODIFY")
+
+        ast = parse_one("SHOW WAREHOUSES", read="snowflake")
+        self.assertEqual(ast.this, "WAREHOUSES")
+
     def test_show_schemas(self):
         self.validate_identity(
             "show terse schemas in database db1 starts with 'a' limit 10 from 'b'",

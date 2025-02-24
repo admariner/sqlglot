@@ -735,6 +735,11 @@ class Parser(metaclass=_Parser):
 
     COLUMN_OPERATORS = {
         TokenType.DOT: None,
+        TokenType.DOTCOLON: lambda self, this, to: self.expression(
+            exp.JSONCast,
+            this=this,
+            to=to,
+        ),
         TokenType.DCOLON: lambda self, this, to: self.expression(
             exp.Cast if self.STRICT_CAST else exp.TryCast,
             this=this,
@@ -1372,6 +1377,8 @@ class Parser(metaclass=_Parser):
     AMBIGUOUS_ALIAS_TOKENS = (TokenType.LIMIT, TokenType.OFFSET)
 
     OPERATION_MODIFIERS: t.Set[str] = set()
+
+    RECURSIVE_CTE_SEARCH_KIND = {"BREADTH", "DEPTH", "CYCLE"}
 
     STRICT_CAST = True
 
@@ -3082,10 +3089,21 @@ class Parser(metaclass=_Parser):
             )
 
             if distinct:
-                distinct = self.expression(
-                    exp.Distinct,
-                    on=self._parse_value() if self._match(TokenType.ON) else None,
-                )
+                on = self._parse_value() if self._match(TokenType.ON) else None
+
+                # In `SELECT DISTINCT ON (p1, t.c2)`, p1 is an identifier, while c2 is a column reference.
+                # The reason is that `p1` can be a projection alias or a column, but engines resolve it as
+                # the projection alias (e.g. postgres, duckdb, clickhouse).
+                if isinstance(on, exp.Tuple):
+                    on.set(
+                        "expressions",
+                        [
+                            c.this if isinstance(c, exp.Column) and not c.table else c
+                            for c in on.expressions
+                        ],
+                    )
+
+                distinct = self.expression(exp.Distinct, on=on)
 
             if all_ and distinct:
                 self.raise_error("Cannot specify both ALL and DISTINCT after SELECT")
@@ -3174,6 +3192,24 @@ class Parser(metaclass=_Parser):
 
         return self._parse_set_operations(this) if parse_set_operation else this
 
+    def _parse_recursive_with_search(self) -> t.Optional[exp.RecursiveWithSearch]:
+        self._match_text_seq("SEARCH")
+
+        kind = self._match_texts(self.RECURSIVE_CTE_SEARCH_KIND) and self._prev.text.upper()
+
+        if not kind:
+            return None
+
+        self._match_text_seq("FIRST", "BY")
+
+        return self.expression(
+            exp.RecursiveWithSearch,
+            kind=kind,
+            this=self._parse_id_var(),
+            expression=self._match_text_seq("SET") and self._parse_id_var(),
+            using=self._match_text_seq("USING") and self._parse_id_var(),
+        )
+
     def _parse_with(self, skip_with_token: bool = False) -> t.Optional[exp.With]:
         if not skip_with_token and not self._match(TokenType.WITH):
             return None
@@ -3198,7 +3234,11 @@ class Parser(metaclass=_Parser):
             last_comments = self._prev_comments
 
         return self.expression(
-            exp.With, comments=comments, expressions=expressions, recursive=recursive
+            exp.With,
+            comments=comments,
+            expressions=expressions,
+            recursive=recursive,
+            search=self._parse_recursive_with_search(),
         )
 
     def _parse_cte(self) -> t.Optional[exp.CTE]:
@@ -5294,7 +5334,7 @@ class Parser(metaclass=_Parser):
             op_token = self._prev.token_type
             op = self.COLUMN_OPERATORS.get(op_token)
 
-            if op_token == TokenType.DCOLON:
+            if op_token in (TokenType.DCOLON, TokenType.DOTCOLON):
                 field = self._parse_dcolon()
                 if not field:
                     self.raise_error("Expected type")

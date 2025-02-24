@@ -90,6 +90,14 @@ SELECT x.a AS a, x.b AS b FROM x AS x ORDER BY a, b;
 SELECT DISTINCT a AS c, b AS d FROM x ORDER BY 1;
 SELECT DISTINCT x.a AS c, x.b AS d FROM x AS x ORDER BY c;
 
+# execute: false
+SELECT DISTINCT ON (x, t.y) * FROM t;
+SELECT DISTINCT ON (x, t.y) * FROM t AS t;
+
+# execute: false
+SELECT DISTINCT ON (new_col) t1.col1 AS new_col FROM table1 AS t1;
+SELECT DISTINCT ON (new_col) t1.col1 AS new_col FROM table1 AS t1;
+
 SELECT 2 FROM x GROUP BY 1;
 SELECT 2 AS "2" FROM x AS x GROUP BY 1;
 
@@ -268,6 +276,10 @@ SELECT g.generate_series AS generate_series FROM generate_series(0, 10) AS g(gen
 # dialect: snowflake
 SELECT * FROM quarterly_sales PIVOT(SUM(amount) FOR quarter IN (ANY ORDER BY quarter)) ORDER BY empid;
 SELECT * FROM QUARTERLY_SALES AS QUARTERLY_SALES PIVOT(SUM(QUARTERLY_SALES.AMOUNT) FOR QUARTERLY_SALES.QUARTER IN (ANY ORDER BY QUARTER)) AS _Q_0 ORDER BY _Q_0.EMPID;
+
+# execute: false
+SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x) AS x FROM t;
+SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY t.x) AS x FROM t AS t;
 
 --------------------------------------
 -- Derived tables

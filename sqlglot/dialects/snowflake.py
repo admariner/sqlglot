@@ -520,6 +520,8 @@ class Snowflake(Dialect):
         }
 
         SHOW_PARSERS = {
+            "DATABASES": _show_parser("DATABASES"),
+            "TERSE DATABASES": _show_parser("DATABASES"),
             "SCHEMAS": _show_parser("SCHEMAS"),
             "TERSE SCHEMAS": _show_parser("SCHEMAS"),
             "OBJECTS": _show_parser("OBJECTS"),
@@ -539,6 +541,9 @@ class Snowflake(Dialect):
             "COLUMNS": _show_parser("COLUMNS"),
             "USERS": _show_parser("USERS"),
             "TERSE USERS": _show_parser("USERS"),
+            "FUNCTIONS": _show_parser("FUNCTIONS"),
+            "PROCEDURES": _show_parser("PROCEDURES"),
+            "WAREHOUSES": _show_parser("WAREHOUSES"),
         }
 
         CONSTRAINT_PARSERS = {
@@ -767,6 +772,14 @@ class Snowflake(Dialect):
             if self._match(TokenType.IN):
                 if self._match_text_seq("ACCOUNT"):
                     scope_kind = "ACCOUNT"
+                elif self._match_text_seq("CLASS"):
+                    scope_kind = "CLASS"
+                    scope = self._parse_table_parts()
+                elif self._match_text_seq("APPLICATION"):
+                    scope_kind = "APPLICATION"
+                    if self._match_text_seq("PACKAGE"):
+                        scope_kind += " PACKAGE"
+                    scope = self._parse_table_parts()
                 elif self._match_set(self.DB_CREATABLES):
                     scope_kind = self._prev.text.upper()
                     if self._curr:
@@ -787,6 +800,8 @@ class Snowflake(Dialect):
                     "starts_with": self._match_text_seq("STARTS", "WITH") and self._parse_string(),
                     "limit": self._parse_limit(),
                     "from": self._parse_string() if self._match(TokenType.FROM) else None,
+                    "privileges": self._match_text_seq("WITH", "PRIVILEGES")
+                    and self._parse_csv(lambda: self._parse_var(any_token=True, upper=True)),
                 },
             )
 
@@ -1157,7 +1172,10 @@ class Snowflake(Dialect):
             if from_:
                 from_ = f" FROM {from_}"
 
-            return f"SHOW {terse}{expression.name}{history}{like}{scope_kind}{scope}{starts_with}{limit}{from_}"
+            privileges = self.expressions(expression, key="privileges", flat=True)
+            privileges = f" WITH PRIVILEGES {privileges}" if privileges else ""
+
+            return f"SHOW {terse}{expression.name}{history}{like}{scope_kind}{scope}{starts_with}{limit}{from_}{privileges}"
 
         def describe_sql(self, expression: exp.Describe) -> str:
             # Default to table if kind is unknown

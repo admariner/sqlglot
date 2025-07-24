@@ -54,7 +54,7 @@ def _build_datetime(
             # Converts calls like `TO_TIME('01:02:03')` into casts
             if len(args) == 1 and value.is_string and not int_value:
                 return (
-                    exp.TryCast(this=value, to=exp.DataType.build(kind))
+                    exp.TryCast(this=value, to=exp.DataType.build(kind), requires_string=True)
                     if safe
                     else exp.cast(value, kind)
                 )
@@ -494,6 +494,7 @@ class Snowflake(Dialect):
     COPY_PARAMS_ARE_CSV = False
     ARRAY_AGG_INCLUDES_NULLS = None
     ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN = False
+    TRY_CAST_REQUIRES_STRING = True
 
     TIME_MAPPING = {
         "YYYY": "%Y",
@@ -547,6 +548,7 @@ class Snowflake(Dialect):
         IDENTIFY_PIVOT_STRINGS = True
         DEFAULT_SAMPLING_METHOD = "BERNOULLI"
         COLON_IS_VARIANT_EXTRACT = True
+        JSON_EXTRACT_REQUIRES_JSON_EXPRESSION = True
 
         ID_VAR_TOKENS = {
             *parser.Parser.ID_VAR_TOKENS,
@@ -590,7 +592,9 @@ class Snowflake(Dialect):
             ),
             "FLATTEN": exp.Explode.from_arg_list,
             "GET_PATH": lambda args, dialect: exp.JSONExtract(
-                this=seq_get(args, 0), expression=dialect.to_json_path(seq_get(args, 1))
+                this=seq_get(args, 0),
+                expression=dialect.to_json_path(seq_get(args, 1)),
+                requires_json=True,
             ),
             "HEX_DECODE_BINARY": exp.Unhex.from_arg_list,
             "IFF": exp.If.from_arg_list,
@@ -1139,6 +1143,7 @@ class Snowflake(Dialect):
             "REMOVE": TokenType.COMMAND,
             "RM": TokenType.COMMAND,
             "SAMPLE": TokenType.TABLE_SAMPLE,
+            "SEMANTIC VIEW": TokenType.SEMANTIC_VIEW,
             "SQL_DOUBLE": TokenType.DOUBLE,
             "SQL_VARCHAR": TokenType.VARCHAR,
             "STORAGE INTEGRATION": TokenType.STORAGE_INTEGRATION,
@@ -1184,6 +1189,7 @@ class Snowflake(Dialect):
         SUPPORTS_MEDIAN = True
         ARRAY_SIZE_NAME = "ARRAY_SIZE"
         SUPPORTS_DECODE_CASE = True
+        IS_BOOL_ALLOWED = False
 
         TRANSFORMS = {
             **generator.Generator.TRANSFORMS,
@@ -1395,10 +1401,12 @@ class Snowflake(Dialect):
 
                 value = annotate_types(value, dialect=self.dialect)
 
-            if value.is_type(*exp.DataType.TEXT_TYPES, exp.DataType.Type.UNKNOWN):
+            # Snowflake requires that TRY_CAST's value be a string
+            # If TRY_CAST is being roundtripped (since Snowflake is the only dialect that sets "requires_string") or
+            # if we can deduce that the value is a string, then we can generate TRY_CAST
+            if expression.args.get("requires_string") or value.is_type(*exp.DataType.TEXT_TYPES):
                 return super().trycast_sql(expression)
 
-            # TRY_CAST only works for string values in Snowflake
             return self.cast_sql(expression)
 
         def log_sql(self, expression: exp.Log) -> str:
@@ -1555,10 +1563,16 @@ class Snowflake(Dialect):
         def jsonextract_sql(self, expression: exp.JSONExtract):
             this = expression.this
 
-            # JSON strings are valid coming from other dialects such as BQ
+            # JSON strings are valid coming from other dialects such as BQ so
+            # for these cases we PARSE_JSON preemptively
+            if not isinstance(this, (exp.ParseJSON, exp.JSONExtract)) and not expression.args.get(
+                "requires_json"
+            ):
+                this = exp.ParseJSON(this=this)
+
             return self.func(
                 "GET_PATH",
-                exp.ParseJSON(this=this) if this.is_string else this,
+                this,
                 expression.expression,
             )
 

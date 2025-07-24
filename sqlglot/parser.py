@@ -451,6 +451,7 @@ class Parser(metaclass=_Parser):
         TokenType.MODEL,
         TokenType.NAMESPACE,
         TokenType.SCHEMA,
+        TokenType.SEMANTIC_VIEW,
         TokenType.SEQUENCE,
         TokenType.SINK,
         TokenType.SOURCE,
@@ -758,10 +759,8 @@ class Parser(metaclass=_Parser):
             this=this,
             to=to,
         ),
-        TokenType.DCOLON: lambda self, this, to: self.expression(
-            exp.Cast if self.STRICT_CAST else exp.TryCast,
-            this=this,
-            to=to,
+        TokenType.DCOLON: lambda self, this, to: self.build_cast(
+            strict=self.STRICT_CAST, this=this, to=to
         ),
         TokenType.ARROW: lambda self, this, path: self.expression(
             exp.JSONExtract,
@@ -1534,6 +1533,10 @@ class Parser(metaclass=_Parser):
     # When True, allows complex keys like arrays or literals: {[1, 2]: 3}, {1: 2} (e.g. DuckDB).
     # When False, keys are typically restricted to identifiers.
     MAP_KEYS_ARE_ARBITRARY_EXPRESSIONS = False
+
+    # Whether JSON_EXTRACT requires a JSON expression as the first argument, e.g this
+    # is true for Snowflake but not for BigQuery which can also process strings
+    JSON_EXTRACT_REQUIRES_JSON_EXPRESSION = False
 
     __slots__ = (
         "error_level",
@@ -5592,6 +5595,7 @@ class Parser(metaclass=_Parser):
                 this=this,
                 expression=json_path_expr,
                 variant_extract=True,
+                requires_json=self.JSON_EXTRACT_REQUIRES_JSON_EXPRESSION,
             )
 
             while casts:
@@ -6536,8 +6540,8 @@ class Parser(metaclass=_Parser):
             if self._match(TokenType.CHARACTER_SET):
                 to = self.expression(exp.CharacterSet, this=self._parse_var_or_string())
 
-        return self.expression(
-            exp.Cast if strict else exp.TryCast,
+        return self.build_cast(
+            strict=strict,
             this=this,
             to=to,
             format=fmt,
@@ -6612,7 +6616,7 @@ class Parser(metaclass=_Parser):
         else:
             to = None
 
-        return self.expression(exp.Cast if strict else exp.TryCast, this=this, to=to, safe=safe)
+        return self.build_cast(strict=strict, this=this, to=to, safe=safe)
 
     def _parse_xml_table(self) -> exp.XMLTable:
         namespaces = None
@@ -8647,3 +8651,11 @@ class Parser(metaclass=_Parser):
             return self._parse_as_command(start)
 
         return self.expression(exp.Declare, expressions=expressions)
+
+    def build_cast(self, strict: bool, **kwargs) -> exp.Cast:
+        exp_class = exp.Cast if strict else exp.TryCast
+
+        if exp_class == exp.TryCast:
+            kwargs["requires_string"] = self.dialect.TRY_CAST_REQUIRES_STRING
+
+        return self.expression(exp_class, **kwargs)

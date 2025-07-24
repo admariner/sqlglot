@@ -305,6 +305,13 @@ LANGUAGE js AS
         )
 
         self.validate_all(
+            "SELECT TRUE IS TRUE",
+            write={
+                "bigquery": "SELECT TRUE IS TRUE",
+                "snowflake": "SELECT TRUE",
+            },
+        )
+        self.validate_all(
             "SELECT REPEAT(' ', 2)",
             read={
                 "hive": "SELECT SPACE(2)",
@@ -411,6 +418,13 @@ LANGUAGE js AS
             write={
                 "bigquery": "SAFE_CAST(some_date AS DATE FORMAT 'YYYY-MM-DD') AS some_date",
                 "duckdb": "CAST(TRY_STRPTIME(some_date, '%Y-%m-%d') AS DATE) AS some_date",
+            },
+        )
+        self.validate_all(
+            "SAFE_CAST(x AS TIMESTAMP)",
+            write={
+                "bigquery": "SAFE_CAST(x AS TIMESTAMP)",
+                "snowflake": "CAST(x AS TIMESTAMPTZ)",
             },
         )
         self.validate_all(
@@ -2272,6 +2286,14 @@ OPTIONS (
                 "bigquery": """SELECT JSON_QUERY('{"class": {"students": []}}', '$.class')""",
                 "duckdb": """SELECT '{"class": {"students": []}}' -> '$.class'""",
                 "snowflake": """SELECT GET_PATH(PARSE_JSON('{"class": {"students": []}}'), 'class')""",
+            },
+        )
+
+        self.validate_all(
+            """SELECT JSON_QUERY(foo, '$.class')""",
+            write={
+                "bigquery": """SELECT JSON_QUERY(foo, '$.class')""",
+                "snowflake": """SELECT GET_PATH(PARSE_JSON(foo), 'class')""",
             },
         )
 
